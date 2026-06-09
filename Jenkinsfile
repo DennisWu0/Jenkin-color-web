@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent prod-vlan30-colorweb
 
     stages {
 
@@ -13,6 +13,10 @@ pipeline {
         stage('Test Connection') {
             steps {
                 echo "Jenkins is successfully connected to GitHub!"
+                sh '''
+                        echo "hello from agent" > test.txt
+                        ls -l
+                    '''
             }
         }
 
