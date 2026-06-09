@@ -1,5 +1,7 @@
 pipeline {
-    agent prod-vlan30-colorweb
+    agent {
+        label 'prod-vlan30-colorweb'
+          }        
 
     stages {
 
