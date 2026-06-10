@@ -10,6 +10,8 @@ pipeline {
         REGISTRY = '192.168.217.100:5000'
         IMAGE_NAME = 'color-web'
         IMAGE_TAG = "${BUILD_NUMBER}"
+
+        SERVER = '192.168.217.120'
     }
 
     stages {
@@ -56,6 +58,12 @@ pipeline {
                     docker run -d \
                         --name color-web \
                         -p 5001:5001 \
+                        
+                        -e DB_HOST= ${SERVER}\
+                        -e DB_NAME=demo \
+                        -e DB_USER=postgres \
+                        -e DB_PASS=postgres \
+                        
                         ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
