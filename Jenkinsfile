@@ -19,7 +19,6 @@ pipeline {
         stage('Clone Source') {
             steps {
                 sh """
-                    rm -rf ${WORK_DIR}
                     git clone ${GIT_REPO} ${WORK_DIR}
                 """
             }
