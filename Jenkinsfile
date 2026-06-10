@@ -50,15 +50,18 @@ pipeline {
             steps {
                 sh """
                     whoami
+                    groups
+                    id
+                    docker ps
                     
-                    sudo docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    // sudo docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
-                    sudo docker rm -f color-web || true
+                    // sudo docker rm -f color-web || true
 
-                    sudo docker run -d \
-                        --name color-web \
-                        -p 5001:5001 \
-                        ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    // sudo docker run -d \
+                    //     --name color-web \
+                    //     -p 5001:5001 \
+                    //     ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
         }
