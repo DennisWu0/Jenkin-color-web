@@ -1,33 +1,63 @@
 pipeline {
     agent {
-        label 'prod-vlan30-colorweb'
-          }        
+        label 'master'
+    }
+
+    environment {
+        GIT_REPO = 'https://github.com/DennisWu0/Jenkin-color-web.git'
+        WORK_DIR = '/opt/jenkins/color-web'
+
+        REGISTRY = '192.168.217.100:5000'
+        IMAGE_NAME = 'color-web'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
 
     stages {
 
-        stage('Checkout') {
+        stage('Clone Source') {
             steps {
-                echo "Cloning repository from GitHub..."
-                checkout scm
+                sh """
+                    rm -rf ${WORK_DIR}
+                    git clone ${GIT_REPO} ${WORK_DIR}
+                """
             }
         }
 
-        stage('Test Connection') {
+        stage('Build Docker Image') {
             steps {
-                echo "Jenkins is successfully connected to GitHub!"
-                sh '''
-                        echo "hello from agent" > test.txt
-                        ls -l
-                    '''
+                dir("${WORK_DIR}") {
+                    sh """
+                        docker compose build
+                    """
+                }
             }
         }
 
-        stage('Show Git Info') {
+        stage('Push Image') {
             steps {
-                sh '''
-                    echo "Commit info:"
-                    git log -1
-                '''
+                sh """
+                    docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Deploy Agent 1') {
+            agent {
+                label 'prod-vlan30-colorweb'
+            }
+
+            steps {
+                sh """
+                    docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+
+                    docker rm -f color-web || true
+
+                    docker run -d \
+                        --name color-web \
+                        -p 5001:5001 \
+                        ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                """
             }
         }
     }
