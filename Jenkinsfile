@@ -49,7 +49,7 @@ pipeline {
 
             steps {
                 sh """
-                    whoaim
+                    whoami
                     
                     docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
