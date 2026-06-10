@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'prod-vlan10-main'
+        label 'prod-vlan30-colorweb'
     }
 
     environment {
@@ -29,7 +29,7 @@ pipeline {
             steps {
                 dir("${WORK_DIR}") {
                     sh """
-                        docker compose build
+                        docker compose up --build -d
                     """
                 }
             }
@@ -44,27 +44,8 @@ pipeline {
             }
         }
 
-        stage('Deploy Agent 1') {
-            agent {
-                label 'prod-vlan30-colorweb'
-            }
 
-            steps {
-                sh """
-                    docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
-                    docker rm -f color-web || true
-
-                    docker run -d \
-                        --name color-web \
-                        -p 5001:5001 \
-                        -e DB_HOST= ${SERVER}\
-                        -e DB_NAME=demo \
-                        -e DB_USER=postgres \
-                        -e DB_PASS=postgres \
-                        ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                """
-            }
         }
     }
 }
