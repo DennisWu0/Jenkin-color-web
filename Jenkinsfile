@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'master'
+        label 'prod-vlan10-main'
     }
 
     environment {
