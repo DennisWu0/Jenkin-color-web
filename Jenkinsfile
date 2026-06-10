@@ -58,12 +58,10 @@ pipeline {
                     docker run -d \
                         --name color-web \
                         -p 5001:5001 \
-                        
                         -e DB_HOST= ${SERVER}\
                         -e DB_NAME=demo \
                         -e DB_USER=postgres \
                         -e DB_PASS=postgres \
-                        
                         ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
