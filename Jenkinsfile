@@ -49,6 +49,8 @@ pipeline {
 
             steps {
                 sh """
+                    whoaim
+                    
                     docker pull ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
 
                     docker rm -f color-web || true
