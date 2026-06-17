@@ -29,5 +29,10 @@ def index():
     color = get_color()
     return render_template("index.html", color=color)
 
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
+    
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)
