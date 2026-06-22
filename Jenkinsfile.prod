@@ -1,0 +1,255 @@
+WORK_DIR = '/data/jenkins/color-web/run'
+BACKUP_PATH = '/data/jenkins/color-web/backup'
+NOTE_PATH = "/data/jenkins/color-web/note"
+CLONE_DIRECTORY = '/home/jenkins/color-web'
+USER = 'petops'
+IMAGE_NAME = 'color-web'
+IMAGE_TAG = "${BUILD_NUMBER}"
+REGISTRY = '192.168.20.100:5000'
+TIMESTAMP = new Date().format("ddMMyyyy_HHmm")
+
+OWNER = "DennisWu0"
+REPO = "Jenkin-color-web"
+
+def GIT_REPO = "https://github.com/${OWNER}/${REPO}.git"
+def SERVER_AGENT = '192.168.30.132'
+
+def startProcess() {
+    stage('Start') {
+        dir("${WORK_DIR}") {
+            // run it
+            sh """
+                docker compose down 
+                docker compose up --build -d
+            """
+        }
+    }    
+}
+
+def upcodeProcess(githubLink, commitHash) {
+    stage('Checkout') {
+        dir("${CLONE_DIRECTORY}") {
+            if (params.hash == "")
+                error ("Require hasing for code update")
+     
+            checkout([
+                $class: 'GitSCM',
+                branches: [[name: '*/main']],
+                userRemoteConfigs: [[  credentialsId: 'github_valid', url: githubLink]]
+                ])
+                
+            sh """
+                git rev-parse --verify ${commitHash}
+                git checkout ${commitHash}
+            """
+    
+            echo "Checked out commit: ${commitHash}"
+        }
+    }
+}
+
+def deploy() {
+    stage("Config") {
+        // remove the old file -> change the permission -> copy it 
+        sh """
+            set -e
+            rm -rf ${WORK_DIR} 
+            cp -r ${CLONE_DIRECTORY} ${WORK_DIR} 
+            chown -R ${USER}:${USER} ${WORK_DIR} 
+            chmod -R 755 ${WORK_DIR} 
+            rm -rf ${CLONE_DIRECTORY} 
+        """
+    }
+    
+    stage("Build") {
+        dir("${WORK_DIR}") {
+            // run it
+            sh """
+                docker compose up --build -d
+            """
+        }
+    }    
+    stage("Push Image"){
+        sh """
+            docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+            docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+        """
+    }
+    
+}
+
+def backupProcess() {
+    stage('Backup') {
+
+        def backupFile = "${BACKUP_PATH}/${IMAGE_NAME}_${TIMESTAMP}.tar.gz"
+
+        sh """
+            mkdir -p ${BACKUP_PATH}
+
+            if [ -d "${WORK_DIR}" ]; then
+                tar -czf ${backupFile} -C ${WORK_DIR} .
+                echo "Backup created: ${backupFile}"
+            else
+                echo "WORK_DIR not found"
+            fi
+        """
+    }
+}
+
+
+def rollBack() {
+    stage('Rollback') {
+        // delete the current run file and then unzip the backup file
+        sh """
+            rm -rf ${WORK_DIR}
+            mkdir -p ${WORK_DIR}
+            cd ${BACKUP_PATH}
+            tar -xzf ${params.rollback} -C ${WORK_DIR}
+        """
+    }
+    
+    stage('Wait') {
+		    sleep(time: 10, unit: 'SECONDS')
+    }
+    
+}
+
+def healthCheck() {
+    stage('Health Check') {
+
+        sh """
+            echo "Waiting application startup..."
+            
+            sleep 5
+            
+            curl -f http://localhost:5001/health
+        """
+
+        echo "Health check passed"
+    }
+}
+
+def getCommitInfo(commitHash) {
+    stage('Commit Content') {
+        def response = sh(
+            script: """
+            curl -s https://api.github.com/repos/${OWNER}/${REPO}/commits/${commitHash}
+            """,
+            returnStdout: true
+        ).trim()
+    
+        def json = readJSON text: response
+        
+        return [
+            commit: commitHash,
+            message: json.commit.message
+        ]
+    }
+}
+
+
+def createBackupNote(String commitHash, String commitMessage) {
+    def noteFile = "${NOTE_PATH }/${IMAGE_NAME}_${TIMESTAMP}.txt"
+	
+	sh """
+    	cat > "${noteFile}" << EOF
+    	Version:
+    	Commit: ${commitHash}
+    	Branch: Main
+    	Commit Message: ${commitMessage}
+    	
+    	Build: #${BUILD_NUMBER}
+    	Deploy Time: \$(date '+%Y-%m-%d %H:%M:%S')
+    	
+    	EOF
+	"""
+	
+	echo "Backup note created: ${noteFile}"
+}
+
+def cleanupBackup() {
+    stage('Cleanup Backup') {
+        sh """
+	        echo "Deleting old backups (keeping latest 10)..."
+            cd ${BACKUP_PATH}
+
+            ls -1t | tail -n +11 | xargs -r -I {} bash -c 'echo "Deleting: {}"; rm -f "{}"'
+        """
+    }
+}
+
+def cleanupLocalImages() {
+
+    stage('Cleanup Local Images') {
+
+        sh """
+            docker images ${REGISTRY}/${IMAGE_NAME} \
+            --format "{{.Repository}}:{{.Tag}}" |
+            sort -V |
+            head -n -10 |
+            xargs -r docker rmi
+        """
+    }
+}
+
+node(params.servers) {
+    // 10 prod-node-01 upcode 
+    currentBuild.displayName =
+        "#${BUILD_NUMBER} | ${params.action.toUpperCase()} | ${params.servers}"
+
+    if (params.action == 'start') {
+        startProcess()
+    }
+
+
+  	if (params.action == 'upcode') {
+  	
+  	    try {
+  	
+  	        upcodeProcess(GIT_REPO, params.hash)
+  	
+  	        deploy()
+  	        
+  	        backupProcess()
+  	        
+              def gitInfo = getCommitInfo(params.hash)
+  
+  	        createBackupNote(
+  	            gitInfo.commit,
+  		        gitInfo.message
+  		        )
+  	
+  	        retry(3) {
+  	
+  	            sleep(time: 15, unit: 'SECONDS')
+  	
+  	            healthCheck()
+  	        }
+  	
+  	    } catch (Exception e) {
+  	
+  	        currentBuild.result = "FAILURE"
+  	
+  	        echo """
+  					==================================
+  					Deployment Failed After 3 Retries
+  					Commit: ${params.hash}
+  					Server: ${params.servers}
+  					==================================
+  					"""
+  	
+  	        throw e
+  	    }
+  	}
+  
+    
+      if (params.action == 'rollback'){
+      rollBack()
+      startProcess()
+      }
+      
+      if (params.action == 'maintain') {
+      cleanupBackup()
+      cleanupLocalImages()
+      }
+}
