@@ -4,7 +4,6 @@ A simple end-to-end containerized web application that demonstrates a basic CI/C
 
 This project is designed for learning DevOps fundamentals such as containerization, service orchestration, and environment-based configuration.
 
----
 
 ## 📌 Architecture Overview
 
@@ -17,7 +16,6 @@ This demo consists of:
 
 The Flask app reads data from PostgreSQL and dynamically renders a webpage based on database content.
 
----
 
 ## ⚙️ Tech Stack
 
@@ -27,15 +25,14 @@ The Flask app reads data from PostgreSQL and dynamically renders a webpage based
 - Docker
 - Docker Compose
 
----
 
 ## 🐳 How to Run Locally
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/mini-cicd-demo.git
-cd mini-cicd-demo
+git clone https://github.com/DennisWu0/Jenkin-color-web.git
+cd Jenkin-color-web
 ```
 
 ### 2. Start services
